@@ -3121,6 +3121,7 @@ def _pad_circular(input, padding):
     return input
 
 
+###ATTENTION FUNCTION HERE
 def multi_head_attention_forward(query,                           # type: Tensor
                                  key,                             # type: Tensor
                                  value,                           # type: Tensor
@@ -3345,6 +3346,7 @@ def multi_head_attention_forward(query,                           # type: Tensor
                                                device=key_padding_mask.device)], dim=1)
 
     attn_output_weights = torch.bmm(q, k.transpose(1, 2))
+    
     assert list(attn_output_weights.size()) == [bsz * num_heads, tgt_len, src_len]
 
     if attn_mask is not None:
@@ -3358,19 +3360,27 @@ def multi_head_attention_forward(query,                           # type: Tensor
             float('-inf'),
         )
         attn_output_weights = attn_output_weights.view(bsz * num_heads, tgt_len, src_len)
-
     attn_output_weights = softmax(
         attn_output_weights, dim=-1)
+
+    #attn_val = attn_output_weights
     attn_output_weights = dropout(attn_output_weights, p=dropout_p, training=training)
+    attn_val = attn_output_weights
 
     attn_output = torch.bmm(attn_output_weights, v)
+#    attn_val = attn_output
+    
     assert list(attn_output.size()) == [bsz * num_heads, tgt_len, head_dim]
+    
     attn_output = attn_output.transpose(0, 1).contiguous().view(tgt_len, bsz, embed_dim)
+    attn_preactivation = attn_output
+
     attn_output = linear(attn_output, out_proj_weight, out_proj_bias)
+    attn_activation = attn_output
 
     if need_weights:
         # average attention weights over heads
         attn_output_weights = attn_output_weights.view(bsz, num_heads, tgt_len, src_len)
-        return attn_output, attn_output_weights.sum(dim=1) / num_heads
+        return attn_output, attn_output_weights.sum(dim=1) / num_heads, attn_val, attn_preactivation, attn_activation
     else:
         return attn_output, None
